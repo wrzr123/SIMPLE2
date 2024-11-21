@@ -35,7 +35,9 @@ class SelfPlayCallback(EvalCallback):
       result = super(SelfPlayCallback, self)._on_step() #this will set self.best_mean_reward to the reward from the evaluation as it's previously -np.inf
 
       list_of_rewards = MPI.COMM_WORLD.allgather(self.best_mean_reward)
+      list_of_opponent_rewards = MPI.COMM_WORLD.allgather(self.best_opponent_mean_reward)
       av_reward = np.mean(list_of_rewards)
+      av_opponent_reward = np.mean(list_of_opponent_rewards)
       std_reward = np.std(list_of_rewards)
       av_timesteps = np.mean(MPI.COMM_WORLD.allgather(self.num_timesteps))
       total_episodes = np.sum(MPI.COMM_WORLD.allgather(self.n_eval_episodes))
@@ -46,11 +48,11 @@ class SelfPlayCallback(EvalCallback):
 
       rank = MPI.COMM_WORLD.Get_rank()
       if rank == 0:
-        logger.info("Eval num_timesteps={}, episode_reward={:.2f} +/- {:.2f}".format(self.num_timesteps, av_reward, std_reward))
+        logger.info("Eval num_timesteps={}, episode_reward={:.2f} +/- {:.2f} opponent_reward={:.2f}".format(self.num_timesteps, av_reward, std_reward, av_opponent_reward))
         logger.info("Total episodes ran={}".format(total_episodes))
 
       #compare the latest reward against the threshold
-      if result and av_reward > self.threshold:
+      if result and av_reward - av_opponent_reward > self.threshold:
         self.generation += 1
         if rank == 0: #write new files
           logger.info(f"New best model: {self.generation}\n")

@@ -105,10 +105,12 @@ def selfplay_wrapper(env):
 
             agent_reward = reward[self.agent_player_num]
             logger.debug(f'\nReward To Agent: {agent_reward}')
+            # remove agent's reward for later comparison of agent to other opponents
+            reward.remove(agent_reward)
 
             if done:
                 self.render()
 
-            return observation, agent_reward, done, {} 
+            return observation, agent_reward, done, {'all_rewards': reward}
 
     return SelfPlayEnv
