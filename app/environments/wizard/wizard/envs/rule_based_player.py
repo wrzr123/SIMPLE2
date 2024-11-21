@@ -47,7 +47,7 @@ class RuleBasedPlayer:
 
     def guess(self) -> List[float]:
         wizard_count = sum(1 for card in self.player.cards if card.value == WIZARD)
-        return self.create_action_probs(wizard_count)
+        return self.create_action_probs(wizard_count )
 
     def play(self) -> List[float]:
         tricks_won = sum(1 for trick in self.tricks if trick.finished and trick.winner == self.player.id)
@@ -84,8 +84,11 @@ class RuleBasedPlayer:
                 return self.create_action_probs(self.get_highest_card())
 
     def create_action_probs(self, action) -> List[float]:
+        phase_adjustment = 0
+        if self.phase == GUESS: phase_adjustment = 4
+        if self.phase == PLAY: phase_adjustment = 4 + 16
         action_probs = [0.01] * self.action_space.n
-        action_probs[action] = 1 - 0.01 * (self.action_space.n - 1)
+        action_probs[action + phase_adjustment] = 1 - 0.01 * (self.action_space.n - 1)
         return action_probs
 
     def get_highest_card_that_doesnt_win(self, except_wizard=False) -> int:
@@ -106,7 +109,7 @@ class RuleBasedPlayer:
                     return card_index # means we have a wizard which doesn't win and want to throw it away
         trump_card_indices: List[int] = []
         for card_index in cards_that_dont_win_indices:
-            if self.player.cards[card_index].suit == current_trick.trump.suit:
+            if self.player.cards[card_index].suit == current_trick.trump.suit and not self.player.cards[card_index].is_white_card:
                 trump_card_indices.append(card_index)
         # in case we have trumps that don't win, throw away the highest trump
         if len(trump_card_indices) == 1:
@@ -218,6 +221,6 @@ class RuleBasedPlayer:
         ret = []
         legal_actions = self.legal_actions
         for i in range(len(self.player.cards)):
-            if legal_actions[i] == 1:
+            if legal_actions[i + 4 + 16] == 1:
                 ret.append(i)
         return ret
