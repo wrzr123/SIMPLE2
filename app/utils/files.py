@@ -41,9 +41,12 @@ def write_results(players, game, games, episode_length):
         writer.writerow(out)
 
 
-def load_model(env, name):
+def load_model(env, name, model_dir: str = None):
 
-    filename = os.path.join(config.MODELDIR, env.name, name)
+    if model_dir is None:
+        filename = os.path.join(config.MODELDIR, env.name, name)
+    else:
+        filename = os.path.join(model_dir, name)
     if os.path.exists(filename):
         logger.info(f'Loading {name}')
         cont = True

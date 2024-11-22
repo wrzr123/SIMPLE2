@@ -22,7 +22,7 @@ import config
 
 def main(args):
 
-  logger.configure(config.LOGDIR)
+  logger.configure(config.LOGDIRTEST)
 
   if args.debug:
     logger.set_level(config.DEBUG)
@@ -55,10 +55,10 @@ def main(args):
     elif agent == 'rules':
       agent_obj = Agent('rules')
     elif agent == 'base':
-      base_model = load_model(env, 'base.zip')
+      base_model = load_model(env, 'base.zip', args.model_dir)
       agent_obj = Agent('base', base_model)   
     else:
-      ppo_model = load_model(env, f'{agent}.zip')
+      ppo_model = load_model(env, f'{agent}.zip', args.model_dir)
       agent_obj = Agent(agent, ppo_model)
     agents.append(agent_obj)
     total_rewards[agent_obj.id] = 0
@@ -114,7 +114,8 @@ def main(args):
     
     env.render()
 
-    logger.info(f"Played {game + 1} games: {total_rewards}")
+    if not args.final_results_only or game == args.games - 1:
+      logger.info(f"Played {game + 1} games: {total_rewards}")
 
     if args.write_results:
       write_results(players, game, args.games, env.turns_taken)
@@ -161,6 +162,10 @@ def cli() -> None:
             , help="Write results to a file?")
   parser.add_argument("--seed", "-s",  type = int, default = 17
             , help="Random seed")
+  parser.add_argument("--model_dir", "-md",  type = str, default = None
+            , help="Take models from a custom folder")
+  parser.add_argument("--final_results_only", "-fr",  action = 'store_true', default = False
+            , help="Only log the total result after the final game")
 
   # Extract args
   args = parser.parse_args()
