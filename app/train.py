@@ -155,6 +155,8 @@ def cli() -> None:
             , help="How many episodes should each actor contirbute to the evaluation of the agent")
   parser.add_argument("--threshold", "-t",  type = float, default = 0.2
             , help="What score must the agent achieve during evaluation to 'beat' the previous version?")
+  parser.add_argument("--threshold_vs_opponent", "-to",  action = 'store_true', default = False
+            , help="Must that score be achieved against the previous model or absolute?")
   parser.add_argument("--gamma", "-g",  type = float, default = 0.99
             , help="The value of gamma in PPO")
   parser.add_argument("--timesteps_per_actorbatch", "-tpa",  type = int, default = 1024

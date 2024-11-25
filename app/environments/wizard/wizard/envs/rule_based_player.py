@@ -4,7 +4,7 @@ from gym.spaces import Discrete
 from numpy import ndarray
 
 from wizard.envs.classes import Player, Trick
-from wizard.envs.constants import DETERMINE_TRUMP, GUESS, PLAY, SUIT_ORDER, WIZARD, JESTER
+from wizard.envs.constants import DETERMINE_TRUMP, GUESS, PLAY, SUIT_ORDER, WIZARD, JESTER, MAX_ROUNDS
 
 
 class RuleBasedPlayer:
@@ -47,7 +47,7 @@ class RuleBasedPlayer:
 
     def guess(self) -> List[float]:
         wizard_count = sum(1 for card in self.player.cards if card.value == WIZARD)
-        return self.create_action_probs(wizard_count )
+        return self.create_action_probs(wizard_count)
 
     def play(self) -> List[float]:
         tricks_won = sum(1 for trick in self.tricks if trick.finished and trick.winner == self.player.id)
@@ -59,16 +59,16 @@ class RuleBasedPlayer:
             if not first_to_act:
                 card_index = self.get_highest_card_that_doesnt_win()
                 if card_index > -1:
-                    return self.create_action_probs(card_index)
+                    return self.create_action_probs(self.player.cards[card_index].id)
                 # no card was found that doesn't win
                 # if not last to act, play the lowest possible card and hope somebody goes over
                 if not self.current_trick.last_to_act:
-                    return self.create_action_probs(self.get_lowest_card())
+                    return self.create_action_probs(self.player.cards[self.get_lowest_card()].id)
                 # last to act, no hope anymore. Play the highest card possible to prevent further damage
-                return self.create_action_probs(self.get_highest_card())
+                return self.create_action_probs(self.player.cards[self.get_highest_card()].id)
             # first to act
             else:
-                return self.create_action_probs(self.get_lowest_card())
+                return self.create_action_probs(self.player.cards[self.get_lowest_card()].id)
         # tricks to make
         else:
             # not first to act
@@ -76,17 +76,17 @@ class RuleBasedPlayer:
                 # still try to not win the trick, to wait until last round in best case
                 card_index = self.get_highest_card_that_doesnt_win()
                 if card_index > -1:
-                    return self.create_action_probs(card_index)
+                    return self.create_action_probs(self.player.cards[card_index].id)
                 # if not possible to not win the trick, play the highest possible allowed card
-                return self.create_action_probs(self.get_highest_card())
+                return self.create_action_probs(self.player.cards[self.get_highest_card()].id)
             # first to act
             else:
-                return self.create_action_probs(self.get_highest_card())
+                return self.create_action_probs(self.player.cards[self.get_highest_card()].id)
 
     def create_action_probs(self, action) -> List[float]:
         phase_adjustment = 0
         if self.phase == GUESS: phase_adjustment = 4
-        if self.phase == PLAY: phase_adjustment = 4 + 16
+        if self.phase == PLAY: phase_adjustment = 4 + (MAX_ROUNDS + 2)
         action_probs = [0.01] * self.action_space.n
         action_probs[action + phase_adjustment] = 1 - 0.01 * (self.action_space.n - 1)
         return action_probs

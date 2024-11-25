@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
-from wizard.envs.constants import MAX_ROUNDS
+from basictrickgame.envs.basictrickgame import DECK
 
 tf.get_logger().setLevel('INFO')
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -10,11 +10,11 @@ from tensorflow.keras.layers import Dense, Flatten, BatchNormalization, Activati
 from stable_baselines.common.policies import ActorCriticPolicy
 from stable_baselines.common.distributions import CategoricalProbabilityDistribution
 
-ACTIONS = 4 + (MAX_ROUNDS + 2) + 60
-FEATURE_SIZE = 512
-DEPTH = 5
+ACTIONS = len(DECK)
+FEATURE_SIZE = 128
+DEPTH = 3
 VALUE_DEPTH = 1
-POLICY_DEPTH = 2
+POLICY_DEPTH = 1
 
 class CustomPolicy(ActorCriticPolicy):
     def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=False, **kwargs):

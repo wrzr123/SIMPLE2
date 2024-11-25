@@ -5,8 +5,8 @@ import numpy as np
 import random
 from stable_baselines import logger
 
-from wizard.envs.classes import Player, Card, Trump, Trick, Play
-from wizard.envs.constants import JESTER, WIZARD, GUESS, SUIT_ORDER, DETERMINE_TRUMP, GAME_PHASES, PLAY
+from wizard.envs.classes import Player, Card, Trump, Trick, Play, DECK
+from wizard.envs.constants import JESTER, WIZARD, GUESS, SUIT_ORDER, DETERMINE_TRUMP, GAME_PHASES, PLAY, MAX_ROUNDS
 from wizard.envs.rule_based_player import RuleBasedPlayer
 
 class WizardEnv(gym.Env):
@@ -19,7 +19,7 @@ class WizardEnv(gym.Env):
         self.verbose = verbose
         self.manual = manual
 
-        self.current_round = 4 # is used with zero-based index
+        self.current_round = 2 # is used with zero-based index
         self.deck = self.create_deck()
         self.players = [Player(id=i) for i in range(n_players)]
         self.trick_guesses = [-1] * n_players  # Initialize guesses to an invalid state
@@ -30,27 +30,30 @@ class WizardEnv(gym.Env):
         self.current_starting_player_num = 0
 
         # Define Gym action space
-        self.action_space = gym.spaces.Discrete(4 + 16 + 15)  # Player can guess 0-15 tricks; player can play card 1-15 on his hand
+        self.action_space = gym.spaces.Discrete(4 + MAX_ROUNDS + 2 + 60)  # Player can guess 0-15 tricks; player can play card 1-15 on his hand
         # Define Gym observation space
         phase_size = 3 # 3 phases determine trump, guess, play
-        hand_size = (self.current_round + 1) * (15 + 4) # (all possible cards)
-        trick_size = self.n_players * (15 + 4) # (all possible cards)
+        hand_size = 60 # (all possible cards)
+        trick_size = self.n_players * 60 # (all possible cards)
         trump_size = 4 # (4 suits)
         position_size = self.n_players
-        guess_size = self.n_players * (self.current_round + 2) # (guesses for current round)
-        tricks_won_size = self.current_round + 2
+        player_guess_size = MAX_ROUNDS + 2
+        player_tricks_won_size = MAX_ROUNDS + 2
+        guess_size = self.n_players * (MAX_ROUNDS + 2) # (guesses for current round)
+        tricks_won_size = self.n_players * (MAX_ROUNDS + 2)
         legal_actions_size = self.action_space.n
-        total_observation_size = phase_size + hand_size + trick_size + trump_size + position_size + guess_size + tricks_won_size + legal_actions_size
-        self.observation_space = gym.spaces.Box(0, 1, (total_observation_size,), dtype=np.int8)
+        total_observation_size = (phase_size + hand_size + trick_size + trump_size + position_size + player_guess_size + player_tricks_won_size
+                                  + guess_size + tricks_won_size + legal_actions_size)
+        self.observation_space = gym.spaces.Box(-1, 1, (total_observation_size,), dtype=np.int8)
 
         self.current_player_num = 0
         self.dealer_num = n_players - 1
         self.phase = GUESS  # Phases: 'determine_trump', 'guess' or 'play'
         self.done = False
 
-    def create_deck(self):
-        suits = SUIT_ORDER
-        return [Card(value, suit) for value in range(0, 15) for suit in suits]
+    @staticmethod
+    def create_deck():
+        return [Card(card.value, card.suit) for card in DECK]
 
     def shuffle_and_deal(self):
         random.shuffle(self.deck)
@@ -71,86 +74,64 @@ class WizardEnv(gym.Env):
     def observation(self):
         player = self.players[self.current_player_num]
 
-        # # Represent the current round phase as scalar
-        # phase_obs = np.ndarray(1, dtype=np.float32)
-        # phase_obs[0] = self.value_to_scalar_base_array(GAME_PHASES.index(self.phase), GAME_PHASES)
-
         # Represent the current round phase as one-hot encoded vector
-        phase_obs = np.zeros(3, dtype=np.int8)
+        phase_obs = np.full(3, -1, dtype=np.int8)
         phase_obs[GAME_PHASES.index(self.phase)] = 1
 
-        # # Represent the player's hand as a 30-element scalar array
-        # # 2 elements per card, one for the value, one for the suit
-        # hand_obs = np.full(30, -1, dtype=np.float32)
-        # for i, card in enumerate(player.cards):
-        #     hand_obs[2 * i] = self.card_value_to_scalar(card)
-        #     hand_obs[2 * i + 1] = self.card_suit_to_scalar(card)
+        # Represent the player's hand as a one-hot vector per card
+        hand_obs = np.full(60, -1, dtype=np.int8)
+        for card in player.cards:
+            hand_obs[card.id] = 1
 
-        # Represent the player's hand as a one-hot vector per card and suit for each card
-        hand_obs = np.zeros((self.current_round + 1) * (15 + 4), dtype=np.int8)
-        for i, card in enumerate(player.cards):
-            hand_obs[i * 19 + card.value] = 1
-            hand_obs[i * 19 + 15 + SUIT_ORDER.index(card.suit)] = 1
-
-        # # Represent the current trick as a scalar array
-        # trick_obs = np.full(self.n_players * 2, -1, dtype=np.float32)
-        # for i, play in enumerate(self.current_trick.plays):
-        #     trick_obs[2 * i] = self.card_value_to_scalar(play.card)
-        #     trick_obs[2 * i + 1] = self.card_suit_to_scalar(play.card)
-
-        # Represent the current trick as a one-hot vector per card and suit for each card
-        trick_obs = np.zeros(self.n_players * (15 + 4), dtype=np.int8)
+        # Represent the current trick as a one-hot vector per card of the trick. Cards not played yet have a value of 0
+        trick_obs = np.zeros(60 * self.n_players, dtype=np.int8)
         for i, play in enumerate(self.current_trick.plays):
-            trick_obs[i * 19 + play.card.value] = 1
-            trick_obs[i * 19 + 15 + SUIT_ORDER.index(play.card.suit)] = 1
-
-        # # Represent the player's position as scalar
-        # position_obs = np.ndarray(1, dtype=np.float32)
-        # position_obs[0] = self.value_to_scalar_base_value(self.current_player_position, self.n_players)
+            # Set all bits in the 60-bit block to -1 for the current card
+            trick_obs[i * 60 : (i + 1) * 60] = -1
+            # Set the specific bit for the played card to 1
+            trick_obs[i * 60 + play.card.id] = 1
 
         # Represent the player's position as a one-hot vector
-        position_obs = np.zeros(self.n_players, dtype=np.int8)
+        position_obs = np.full(self.n_players, -1, dtype=np.int8)
         position_obs[self.current_player_position] = 1
 
-        # # Represent the trump as scalar
-        # trump_obs = np.full(1, -1, dtype=np.float32)
-        # if self.trump and self.trump.suit:
-        #     trump_obs[0] = self.value_to_scalar_base_array(SUIT_ORDER.index(self.trump.suit), SUIT_ORDER)
-
-        # One-hot encode the trump suit (4 elements)
+        # One-hot encode the trump suit (4 elements). If not known yet, all bits remain 0
         trump_obs = np.zeros(4, dtype=np.int8)
-        if self.trump and self.trump.suit:
-            trump_obs[SUIT_ORDER.index(self.trump.suit)] = 1
+        if self.trump:
+            trump_obs = np.full(4, -1, dtype=np.int8)
+            if self.trump.suit:
+                trump_obs[SUIT_ORDER.index(self.trump.suit)] = 1
 
-        # # Add players' guesses as a scalar array (n_players elements), using relative positions
-        # guesses_obs = np.full(self.n_players, -1, dtype=np.float32)
-        # player_num = self.current_starting_player_num
-        # for i in range(self.n_players):
-        #     if self.trick_guesses[player_num] > -1:
-        #         guesses_obs[player_num] = self.value_to_scalar_base_value(self.trick_guesses[player_num], 15, True)
-        #     player_num = (player_num + 1) % self.n_players
+        # Represent the guess made by the player
+        if self.trick_guesses[self.current_player_num] > -1:
+            player_guess_obs = np.full(MAX_ROUNDS + 2, -1, dtype=np.int8)
+            player_guess_obs[self.trick_guesses[self.current_player_num]] = 1
+        else:
+            player_guess_obs = np.zeros(MAX_ROUNDS + 2, dtype=np.int8)
 
-        # Add players' guesses as one-hot vectors (n_players elements), using relative positions
-        guesses_obs = np.zeros(self.n_players * (self.current_round + 2), dtype=np.int8)
+        # Represent the tricks won so far by player
+        player_tricks_won_obs = np.full(MAX_ROUNDS + 2, -1, dtype=np.int8)
+        player_tricks_won_obs[self.tricks_won[self.current_player_num]] = 1
+
+        # Add players' guesses and tricks won as one-hot vectors (n_players elements), using relative positions.
+        # For the guesses, set all player bits 0 if no guess yet
+        guesses_obs = np.full(self.n_players * (MAX_ROUNDS + 2), -1, dtype=np.int8)
+        tricks_won_obs = np.full(self.n_players * (MAX_ROUNDS + 2), -1, dtype=np.int8)
         player_num = self.current_starting_player_num
         for i in range(self.n_players):
             if self.trick_guesses[player_num] > -1:
-                guesses_obs[(self.current_round + 2) * i + self.trick_guesses[player_num]] = 1
+                guesses_obs[(MAX_ROUNDS + 2) * i + self.trick_guesses[player_num]] = 1
+            else:
+                guesses_obs[(MAX_ROUNDS + 2) * i : (MAX_ROUNDS + 2) * (i + 1)] = 0
+            tricks_won_obs[(MAX_ROUNDS + 2) * i + self.tricks_won[player_num]] = 1
             player_num = (player_num + 1) % self.n_players
-
-        # # Represent the tricks made so far by player
-        # tricks_won_obs = np.ndarray(1, dtype=np.float32)
-        # tricks_won_obs[0] = self.value_to_scalar_base_value(self.tricks_won[self.current_player_num], 15, True)
-
-        # Represent the tricks made so far by player
-        tricks_won_obs = np.zeros(self.current_round + 2, dtype=np.int8)
-        tricks_won_obs[self.tricks_won[self.current_player_num]] = 1
 
         # Add legal actions
         legal_actions = self.legal_actions
 
         # Combine all observations into a single vector
-        observation = np.concatenate([phase_obs, hand_obs, trick_obs, position_obs, trump_obs, guesses_obs, tricks_won_obs, legal_actions])
+        observation = np.concatenate([phase_obs, hand_obs, trick_obs, position_obs, trump_obs,
+                                      player_guess_obs, player_tricks_won_obs, guesses_obs, tricks_won_obs, legal_actions])
 
         return observation
 
@@ -179,12 +160,12 @@ class WizardEnv(gym.Env):
         else:
             if not self.done:
                 player = self.players[self.current_player_num]
-                for i, card in enumerate(player.cards):
+                for card in player.cards:
                     # logger.debug(f"Checking for player {self.current_player_num} if card {card} is allowed to be played...")
                     if self.current_trick.is_card_allowed_to_be_played(card):
-                        actions[i + 4 + 16] = 1
+                        actions[card.id + 4 + (MAX_ROUNDS + 2)] = 1
                     elif not player.has_suit(self.current_trick.first_card.suit):
-                        actions[i + 4 + 16] = 1
+                        actions[card.id + 4 + (MAX_ROUNDS + 2)] = 1
                     # logger.debug(f"It's {'not ' if actions[i] == 0 else ''}allowed")
             return actions
 
@@ -242,7 +223,9 @@ class WizardEnv(gym.Env):
                 raise ValueError("Game is already finished.")
 
             player = self.players[self.current_player_num]
-            play = Play(player.id, player.cards.pop(action - 4 - 16))
+            cardId = action - 4 - (MAX_ROUNDS + 2)
+            cardIndex = next(i for i, card in enumerate(player.cards) if card.id == cardId)
+            play = Play(player.id, player.cards.pop(cardIndex))
             self.current_trick.add_play(play)
             logger.debug(f"Player {self.current_player_num} plays {play.card} (Trick: {self.current_trick})")
             self.current_player_num = (self.current_player_num + 1) % self.n_players
@@ -320,3 +303,38 @@ class WizardEnv(gym.Env):
     def rules_move(self) -> List[float]:
         rule_player = RuleBasedPlayer(self.players, self.current_player_num, self.phase, self.trick_guesses, self.tricks, self.current_trick, self.action_space, self.legal_actions)
         return rule_player.make_move()
+
+    def parse_human_action(self, action: str) -> int:
+        if self.phase == DETERMINE_TRUMP:
+            try:
+                suit_index = SUIT_ORDER.index(action)
+                return suit_index
+            except ValueError:
+                logger.debug(f"Invalid suit '{action}'")
+        elif self.phase == GUESS:
+            try:
+                guess = int(action)
+                return guess + 4
+            except:
+                logger.debug(f"Invalid guess '{action}'")
+        elif self.phase == PLAY:
+            try:
+                card_index = int(action)
+                return self.players[self.current_player_num].cards[card_index].id + 4 + (MAX_ROUNDS + 2)
+            except:
+                logger.debug(f"Invalid card '{action}'")
+        return -1
+
+    def to_human_action(self, action: int) -> str:
+        if self.phase == DETERMINE_TRUMP:
+            if action > 3: return f"Invalid move '{action}'"
+            return SUIT_ORDER[action]
+        elif self.phase == GUESS:
+            adjusted_action = action - 4
+            if adjusted_action > self.current_round + 1 or adjusted_action < 0: return f"Invalid move '{action}'"
+            return str(adjusted_action)
+        elif self.phase == PLAY:
+            adjusted_action = action - 4 - (MAX_ROUNDS + 2)
+            if adjusted_action > 59 or adjusted_action < 0: return f"Invalid move '{action}'"
+            return str(DECK[adjusted_action])
+        return 'Unknown phase'

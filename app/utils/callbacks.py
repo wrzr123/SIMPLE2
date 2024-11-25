@@ -11,7 +11,7 @@ from utils.files import get_best_model_name, get_model_stats
 import config
 
 class SelfPlayCallback(EvalCallback):
-  def __init__(self, opponent_type, threshold, env_name, *args, **kwargs):
+  def __init__(self, opponent_type, threshold, env_name, threshold_vs_opponent = False, *args, **kwargs):
     super(SelfPlayCallback, self).__init__(*args, **kwargs)
     self.opponent_type = opponent_type
     self.model_dir = os.path.join(config.MODELDIR, env_name)
@@ -22,10 +22,12 @@ class SelfPlayCallback(EvalCallback):
     if self.callback is not None: #if evaling against rules-based agent as well, reset this too
       self.callback.best_mean_reward = -np.inf
 
+    self.threshold_vs_opponent = False
     if self.opponent_type == 'rules':
       self.threshold = bmr # the threshold is the overall best evaluation by the agent against a rules-based agent
     else:
       self.threshold = threshold # the threshold is a constant
+      self.threshold_vs_opponent = threshold_vs_opponent
 
 
   def _on_step(self) -> bool:
@@ -52,7 +54,7 @@ class SelfPlayCallback(EvalCallback):
         logger.info("Total episodes ran={}".format(total_episodes))
 
       #compare the latest reward against the threshold
-      if result and av_reward - av_opponent_reward > self.threshold:
+      if result and ((av_reward - av_opponent_reward > self.threshold and self.threshold_vs_opponent) or (av_reward > self.threshold and not self.threshold_vs_opponent)):
         self.generation += 1
         if rank == 0: #write new files
           logger.info(f"New best model: {self.generation}\n")

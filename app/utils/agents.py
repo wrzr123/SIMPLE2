@@ -29,10 +29,13 @@ class Agent():
       self.model = model
       self.points = 0
 
-  def print_top_actions(self, action_probs):
+  def print_top_actions(self, action_probs, env):
     top5_action_idx = np.argsort(-action_probs)[:5]
     top5_actions = action_probs[top5_action_idx]
-    logger.debug(f"Top 5 actions: {[str(i) + ': ' + str(round(a,2))[:5] for i,a in zip(top5_action_idx, top5_actions)]}")
+    if env.name == 'wizard' or env.name == 'basictrickgame':
+        logger.debug(f"Top 5 actions: {[str(env.to_human_action(i)) + ': ' + str(round(a, 2))[:5] for i, a in zip(top5_action_idx, top5_actions)]}")
+    else:
+        logger.debug(f"Top 5 actions: {[str(i) + ': ' + str(round(a, 2))[:5] for i, a in zip(top5_action_idx, top5_actions)]}")
 
   def choose_action(self, env, choose_best_action, mask_invalid_actions):
       if self.name == 'rules':
@@ -43,19 +46,23 @@ class Agent():
         value = self.model.policy_pi.value(np.array([env.observation]))[0]
         logger.debug(f'Value {value:.2f}')
 
-      self.print_top_actions(action_probs)
+      self.print_top_actions(action_probs, env)
       
       if mask_invalid_actions:
         action_probs = mask_actions(env.legal_actions, action_probs)
         logger.debug('Masked ->')
-        self.print_top_actions(action_probs)
+        self.print_top_actions(action_probs, env)
         
       action = np.argmax(action_probs)
-      logger.debug(f'Best action {action}')
+      if env.name == 'wizard' or env.name == 'basictrickgame':
+          action_str = env.to_human_action(action)
+      else:
+          action_str = str(action)
+      logger.debug(f'Best action {action_str}')
 
       if not choose_best_action:
           action = sample_action(action_probs)
-          logger.debug(f'Sampled action {action} chosen')
+          logger.debug(f'Sampled action {action_str} chosen')
 
       return action
 

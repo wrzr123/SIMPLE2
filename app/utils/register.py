@@ -23,6 +23,9 @@ def get_environment(env_name):
         elif env_name in ('wizard'):
             from wizard.envs.wizard import WizardEnv
             return WizardEnv
+        elif env_name in ('basictrickgame'):
+            from basictrickgame.envs.basictrickgame import BasicTrickGameEnv
+            return BasicTrickGameEnv
         else:
             raise Exception(f'No environment found for {env_name}')
     except SyntaxError as e:
@@ -54,6 +57,9 @@ def get_network_arch(env_name):
         return CustomPolicy
     elif env_name in ('wizard'):
         from models.wizard.models import CustomPolicy
+        return CustomPolicy
+    elif env_name in ('basictrickgame'):
+        from models.basictrickgame.models import CustomPolicy
         return CustomPolicy
     else:
         raise Exception(f'No model architectures found for {env_name}')

@@ -22,13 +22,18 @@ import config
 
 def main(args):
 
-  logger.configure(config.LOGDIRTEST)
+  # Reconfigure the logger to write to a file with UTF-8 encoding
+  log_file = "log.txt"
+  # Open the file in write mode with UTF-8 encoding
+  utf8_file = open(os.path.join(config.LOGDIRTEST, log_file), mode='w', encoding='utf-8')
+  logger.configure(folder=None, format_strs=['stdout', 'log'])
+  logger.Logger.CURRENT.output_formats[-1].file = utf8_file
 
   if args.debug:
     logger.set_level(config.DEBUG)
   else:
     logger.set_level(config.INFO)
-    
+
   #make environment
   env = get_environment(args.env_name)(verbose = args.verbose, manual = args.manual)
   env.seed(args.seed)
@@ -91,8 +96,11 @@ def main(args):
       if current_player.name == 'human':
         action = input('\nPlease choose an action: ')
         try:
-          # for int actions
-          action = int(action)
+          if env.name == 'wizard' or env.name == 'basictrickgame':
+            action = env.parse_human_action(action)
+          else:
+            # for int actions
+            action = int(action)
         except:
           # for MulitDiscrete action input as list TODO
           action = eval(action)

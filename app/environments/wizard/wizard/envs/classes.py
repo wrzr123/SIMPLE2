@@ -1,12 +1,13 @@
 from typing import List
 
-from wizard.envs.constants import JESTER, WIZARD
+from wizard.envs.constants import JESTER, WIZARD, SUIT_ORDER, RED, BLUE, GREEN, YELLOW
 
 
 class Card:
     def __init__(self, value, suit):
         self.value = value  # Numerical value of the card (1-13), 0 is jester, 14 is wizard
         self.suit = suit  # Suit of the card
+        self.id = value + SUIT_ORDER.index(suit) * 15
 
     @property
     def is_white_card(self):
@@ -18,6 +19,71 @@ class Card:
         if self.value == JESTER:
             return 'Jester'
         return f"{self.suit} {self.value}"
+
+
+DECK: List[Card] = [
+    Card(0, RED),
+    Card(1, RED),
+    Card(2, RED),
+    Card(3, RED),
+    Card(4, RED),
+    Card(5, RED),
+    Card(6, RED),
+    Card(7, RED),
+    Card(8, RED),
+    Card(9, RED),
+    Card(10, RED),
+    Card(11, RED),
+    Card(12, RED),
+    Card(13, RED),
+    Card(14, RED),
+    Card(0, BLUE),
+    Card(1, BLUE),
+    Card(2, BLUE),
+    Card(3, BLUE),
+    Card(4, BLUE),
+    Card(5, BLUE),
+    Card(6, BLUE),
+    Card(7, BLUE),
+    Card(8, BLUE),
+    Card(9, BLUE),
+    Card(10, BLUE),
+    Card(11, BLUE),
+    Card(12, BLUE),
+    Card(13, BLUE),
+    Card(14, BLUE),
+    Card(0, GREEN),
+    Card(1, GREEN),
+    Card(2, GREEN),
+    Card(3, GREEN),
+    Card(4, GREEN),
+    Card(5, GREEN),
+    Card(6, GREEN),
+    Card(7, GREEN),
+    Card(8, GREEN),
+    Card(9, GREEN),
+    Card(10, GREEN),
+    Card(11, GREEN),
+    Card(12, GREEN),
+    Card(13, GREEN),
+    Card(14, GREEN),
+    Card(0, YELLOW),
+    Card(1, YELLOW),
+    Card(2, YELLOW),
+    Card(3, YELLOW),
+    Card(4, YELLOW),
+    Card(5, YELLOW),
+    Card(6, YELLOW),
+    Card(7, YELLOW),
+    Card(8, YELLOW),
+    Card(9, YELLOW),
+    Card(10, YELLOW),
+    Card(11, YELLOW),
+    Card(12, YELLOW),
+    Card(13, YELLOW),
+    Card(14, YELLOW)
+]
+
 
 class Player:
     def __init__(self, id):
@@ -33,9 +99,10 @@ class Player:
     def get_suit_count(self, suit) -> int:
         count = 0
         for card in self.cards:
-           if card.suit == suit and not card.is_white_card:
-               count += 1
+            if card.suit == suit and not card.is_white_card:
+                count += 1
         return count
+
 
 class Trump:
     def __init__(self, card):
@@ -57,10 +124,12 @@ class Trump:
         else:
             return f"{self.card} determined {self.determined_suit}"
 
+
 class Play:
     def __init__(self, player_id, card):
         self.player_id = player_id
         self.card = card
+
 
 class Trick:
     def __init__(self, trump: Trump, n_players: int):
@@ -108,7 +177,7 @@ class Trick:
         return self.plays[0].card
 
     @property
-    def free_to_play(self): # returns true if all cards are allowed to be played
+    def free_to_play(self):  # returns true if all cards are allowed to be played
         return (self.first_to_act or self.first_card.value == WIZARD
                 or all(play.card.value == JESTER for play in self.plays))
 
