@@ -9,20 +9,18 @@ from numpy import ndarray
 from stable_baselines import logger
 
 DIFFERENT_CARD_VALUES = 8
+RED = '🔴'
+BLUE = '🔵'
+GREEN = '🟢'
+YELLOW = '🟡'
+SUIT_ORDER = [RED, BLUE, GREEN, YELLOW]
 
 class Card:
     def __init__(self, value: int, suit: int):
         self.value = value
         self.suit = suit
         self.id = value + suit * DIFFERENT_CARD_VALUES
-        if suit == 0:
-            self.suit_str = '🔴'
-        elif suit == 1:
-            self.suit_str = '🔵'
-        elif suit == 2:
-            self.suit_str = '🟢'
-        elif suit == 3:
-            self.suit_str = '🟡'
+        self.suit_str = SUIT_ORDER[suit]
 
     def __repr__(self):
         return f"{self.suit_str}{self.value + 1}"
@@ -197,12 +195,14 @@ class BasicTrickGameEnv(gym.Env):
             for play in trick.plays:
                 played_cards_obs[play.card.id] = 1
 
-        # Represent the trump-suit as one-hot vector
-        trump_suit_obs = np.full(self.trump_suit_size, -1, dtype=np.int8)
-        trump_suit_obs[self.trump_suit] = 1
-
-        # Trump enabled
-        trump_enabled_obs = np.full(self.trump_enabled_size, 1, dtype=np.int8)
+        # Represent the trump-suit as one-hot vector and trump enabled flag
+        if self.trump_suit > -1:
+            trump_suit_obs = np.full(self.trump_suit_size, -1, dtype=np.int8)
+            trump_suit_obs[self.trump_suit] = 1
+            trump_enabled_obs = np.full(self.trump_enabled_size, 1, dtype=np.int8)
+        else:
+            trump_suit_obs = np.full(self.trump_suit_size, 0, dtype=np.int8)
+            trump_enabled_obs = np.full(self.trump_enabled_size, -1, dtype=np.int8)
 
         # Minimize or maximize tricks
         maximize_tricks_obs = np.full(self.maximize_tricks_size, 1, dtype=np.int8)
@@ -271,6 +271,11 @@ class BasicTrickGameEnv(gym.Env):
         self.players = [Player(index=i) for i in range(self.n_players)]
         self.current_player_num = 0
         self.shuffle_and_deal()
+        random_number = random.uniform(0, 1)
+        if random_number > 0.3:
+            self.trump_suit = 3
+        else:
+            self.trump_suit = -1
         self.tricks = [Trick(self.n_players, self.trump_suit)]
         self.tricks_won = [0] * self.n_players
         self.current_trick_num = 0
@@ -282,6 +287,10 @@ class BasicTrickGameEnv(gym.Env):
             return
         for player in self.players:
             logger.debug(f"Player {player.index + 1} holds {', '.join(map(str, player.cards))}")
+        if self.trump_suit == -1:
+            logger.debug(f"Current trump: no trump")
+        else:
+            logger.debug(f"Current trump: {SUIT_ORDER[self.trump_suit]}")
         if self.done:
             logger.debug("Game Over")
             logger.debug(f"Final rewards: {self.score_game()}")

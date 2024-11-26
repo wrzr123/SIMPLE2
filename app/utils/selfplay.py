@@ -40,12 +40,14 @@ def selfplay_wrapper(env):
                 elif self.opponent_type == 'mostly_best':
                     j = random.uniform(0,1)
                     if j < 0.8:
-                        self.opponent_agent = Agent('ppo_opponent', self.opponent_models[-1])  
+                        self.opponent_agent = Agent('ppo_opponent', self.opponent_models[-1])
+                        logger.info(f'Setting up best opponent')
                     else:
                         start = 0
                         end = len(self.opponent_models) - 1
                         i = random.randint(start, end)
-                        self.opponent_agent = Agent('ppo_opponent', self.opponent_models[i])  
+                        self.opponent_agent = Agent('ppo_opponent', self.opponent_models[i])
+                        logger.info(f'Setting up opponent with index {i}')
 
                 elif self.opponent_type == 'base':
                     self.opponent_agent = Agent('base', self.opponent_models[0])  

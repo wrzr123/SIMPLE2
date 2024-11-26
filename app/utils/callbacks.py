@@ -79,6 +79,7 @@ class SelfPlayCallback(EvalCallback):
         
       #reset best_mean_reward because this is what we use to extract the rewards from the latest evaluation by each agent
       self.best_mean_reward = -np.inf
+      self.best_opponent_mean_reward = -np.inf
 
       if self.callback is not None: #if evaling against rules-based agent as well, reset this too
         self.callback.best_mean_reward = -np.inf

@@ -15,13 +15,13 @@ RUN pip3 install --upgrade setuptools
 RUN useradd -ms /bin/bash selfplay
 USER selfplay
 ENV PATH="/home/selfplay/.local/bin:${PATH}"
-WORKDIR /app
+WORKDIR /
 
 
-COPY --chown=selfplay:selfplay ./app/requirements.txt /app
-RUN pip3 install -r /app/requirements.txt
+COPY --chown=selfplay:selfplay ./requirements.txt /
+RUN pip3 install -r /requirements.txt
 
-COPY --chown=selfplay:selfplay ./app .
+COPY --chown=selfplay:selfplay ./ .
 
 ENV PYTHONIOENCODING=utf-8
 ENV LC_ALL=C.UTF-8

@@ -40,6 +40,8 @@ def main(args):
   set_global_seeds(args.seed)
 
   total_rewards = {}
+  total_rewards_with_trump = {}
+  total_rewards_without_trump = {}
 
   if args.recommend:
     ppo_model = load_model(env, 'best_model.zip')
@@ -67,9 +69,13 @@ def main(args):
       agent_obj = Agent(agent, ppo_model)
     agents.append(agent_obj)
     total_rewards[agent_obj.id] = 0
+    total_rewards_with_trump[agent_obj.id] = 0
+    total_rewards_without_trump[agent_obj.id] = 0
   
   #play games
   logger.info(f'\nPlaying {args.games} games...')
+  game_with_trump = 0
+  game_without_trump = 0
   for game in range(args.games):
     players = agents[:]
 
@@ -116,6 +122,10 @@ def main(args):
       for r, player in zip(reward, players):
         total_rewards[player.id] += r
         player.points += r
+        if env.trump_suit > -1:
+          total_rewards_with_trump[player.id] += r
+        else:
+          total_rewards_without_trump[player.id] += r
 
       if args.cont:
         input('Press any key to continue')
@@ -124,12 +134,19 @@ def main(args):
 
     if not args.final_results_only or game == args.games - 1:
       logger.info(f"Played {game + 1} games: {total_rewards}")
+      logger.info(f"With trump played {game_with_trump + 1} games: {total_rewards_with_trump}")
+      logger.info(f"Without trump played {game_without_trump + 1} games: {total_rewards_without_trump}")
 
     if args.write_results:
       write_results(players, game, args.games, env.turns_taken)
 
     for p in players:
       p.points = 0
+
+    if env.trump_suit > -1:
+      game_with_trump += 1
+    else:
+      game_without_trump += 1
 
   env.close()
     
